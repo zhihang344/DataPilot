@@ -1,0 +1,24 @@
+flowchart LR
+  U[Web / API Clients] --> CDN[CDN + WAF]
+  CDN --> GW[API Gateway<br/>rate limit, auth, routing]
+  GW --> LB[Layer 7 Load Balancer]
+  LB --> APP[FastAPI / BFF Cluster]
+  APP --> ORCH[Agent Orchestrator]
+  ORCH --> TOOLS[Tool Sandbox<br/>SQL, Python, charting]
+  ORCH --> RETR[Retrieval Service]
+  ORCH --> LLM[LLM Serving Pool<br/>Qwen fine-tuned + fallback APIs]
+  RETR --> VDB[(Vector DB)]
+  RETR --> OBJ[(Object Storage<br/>uploads, reports)]
+  APP --> CACHE[(Redis Cluster<br/>sessions, queues, hot cache)]
+  APP --> DB[(PostgreSQL / MySQL<br/>users, billing, projects)]
+  APP --> MQ[Kafka / Pulsar]
+  MQ --> WORKER[Async Workers<br/>ETL, long jobs, exports]
+  WORKER --> OBJ
+  WORKER --> DB
+  LLM --> GPU[GPU Inference Nodes<br/>vLLM/TensorRT-LLM]
+  APP --> OBS[Observability<br/>Prometheus, Grafana, ELK, tracing]
+  LLM --> OBS
+  WORKER --> OBS
+  SEC[Security / Governance<br/>PII masking, audit, policy] --> APP
+  SEC --> TOOLS
+
