@@ -128,7 +128,7 @@ conda run -n agent python demo/web_demo.py \
 
 Demo: http://127.0.0.1:8000
 
-The interface is adapted for data analysis and includes a lightweight tool layer. Users can upload CSV or Excel files; the demo uses pandas to profile schema, missing values, numeric statistics, and categorical top values. The dataset profile is injected into the model context so the agent can produce problem abstraction, data understanding, analysis plan, SQL/Python sketch, modeling choices, validation checks, and final answer format. This makes the demo more than a plain chatbot: it performs local data processing before calling the fine-tuned Qwen agent.
+The interface is adapted for data analysis and includes a lightweight tool layer. Users can upload CSV or Excel files; the demo uses pandas to profile schema, missing values, numeric statistics, and categorical top values. The dataset profile is injected into the model context so the agent can produce problem abstraction, data understanding, analysis plan, SQL/Python sketch, modeling choices, validation checks, and final answer format. The demo also extracts the last fenced Python code block from the agent response into an editable code box. After user review, the code can run in a local subprocess sandbox with timeout and static safety checks. Each run creates `outputs/sandbox_runs/<run_id>/`, copies the uploaded file to a fixed `input.csv` or `input.xlsx` alias, defines `DATA_PATH` and `OUTPUT_DIR`, captures stdout/stderr, and records generated artifacts. This makes the demo more than a plain chatbot: it performs local data processing and controlled code execution before returning analysis results.
 
 ## Q2. Startup Business Plan
 

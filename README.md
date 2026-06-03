@@ -69,7 +69,7 @@ conda run -n agent python demo/web_demo.py \
   --adapter-path outputs/checkpoints/qwen35_08b_data_agent_lora/final
 ```
 
-Open the printed local URL, usually `http://127.0.0.1:8000`. The demo supports uploading CSV/Excel files, profiling columns and missing values with pandas, and injecting the dataset profile into the agent context before generating analysis plans, SQL/Python sketches, modeling choices, and validation checks.
+Open the printed local URL, usually `http://127.0.0.1:8000`. The demo supports uploading CSV/Excel files, profiling columns and missing values with pandas, injecting the dataset profile into the agent context, extracting fenced Python code blocks, and running user-reviewed code in a local subprocess sandbox. Sandbox runs are saved under `outputs/sandbox_runs/`, with fixed `DATA_PATH` and `OUTPUT_DIR` variables to avoid filename mismatch.
 
 ## Documents
 

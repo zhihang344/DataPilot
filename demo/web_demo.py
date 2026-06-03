@@ -4,15 +4,27 @@
 from __future__ import annotations
 
 import argparse
+import re
+import sys
 from pathlib import Path
 from typing import Any
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+
+from data_agent.sandbox import format_result_markdown, run_python_in_sandbox
 
 
 SYSTEM_PROMPT = """You are a Data Agent for data analysis and mathematical modeling.
 When the user asks a data question, use the uploaded dataset profile when available.
 Respond with: problem abstraction, data understanding, analysis plan, SQL or Python
 sketch, modeling choices when relevant, validation checks, and final answer format.
-If the data profile is insufficient, ask for the minimum missing information."""
+If the data profile is insufficient, ask for the minimum missing information.
+When writing executable Python code, put it inside a fenced code block starting
+with three backticks and python, and ending with three backticks. Assume DATA_PATH
+and OUTPUT_DIR are predefined. Do not hard-code uploaded file names. Save charts,
+CSV files, and JSON outputs to OUTPUT_DIR. Do not use network, shell commands,
+or absolute file paths."""
 
 
 def parse_args() -> argparse.Namespace:
@@ -83,6 +95,24 @@ def profile_dataframe(df) -> str:
     return "\n".join(lines)
 
 
+PY_CODE_BLOCK_RE = re.compile(r"```(?:python|py)?\s*\n(.*?)```", re.IGNORECASE | re.DOTALL)
+
+
+def extract_last_python_code(markdown: str) -> str:
+    """Extract the last complete fenced Python code block from Markdown."""
+    matches = PY_CODE_BLOCK_RE.findall(markdown or "")
+    return matches[-1].strip() if matches else ""
+
+
+def latest_assistant_text(history: list[dict[str, str]] | None) -> str:
+    for item in reversed(history or []):
+        if isinstance(item, dict) and item.get("role") == "assistant":
+            return item.get("content", "") or ""
+        if isinstance(item, (list, tuple)) and len(item) == 2:
+            return item[1] or ""
+    return ""
+
+
 def main() -> None:
     try:
         import gradio as gr
@@ -122,12 +152,12 @@ def main() -> None:
         try:
             df, status = read_table(file_obj)
             if df is None:
-                return pd.DataFrame(), status, ""
+                return pd.DataFrame(), status, "", ""
             profile = profile_dataframe(df)
             preview = df.head(20)
-            return preview, f"{status}\n\n```text\n{profile}\n```", profile
+            return preview, f"{status}\n\n```text\n{profile}\n```", profile, str(file_obj.name if hasattr(file_obj, "name") else file_obj)
         except Exception as exc:
-            return pd.DataFrame(), f"Failed to profile file: {exc}", ""
+            return pd.DataFrame(), f"Failed to profile file: {exc}", "", ""
 
     def respond(message, history, dataset_profile):
         history = history or []
@@ -152,7 +182,11 @@ def main() -> None:
         updated = history + [{"role": "user", "content": message}, {"role": "assistant", "content": ""}]
         for piece in streamer:
             updated[-1]["content"] += piece
-            yield updated, ""
+            yield updated, "", extract_last_python_code(updated[-1]["content"])
+
+    def run_sandbox_from_ui(code, dataset_path):
+        result = run_python_in_sandbox(code or "", dataset_path or None)
+        return format_result_markdown(result)
 
     with gr.Blocks(title="Data Agent Demo") as demo:
         gr.Markdown("# Data Agent Demo")
@@ -163,20 +197,32 @@ def main() -> None:
                 preview = gr.Dataframe(label="Data Preview", interactive=False)
                 profile_md = gr.Markdown(label="Dataset Profile")
             with gr.Column(scale=5):
-                chatbot = gr.Chatbot(label="Data Agent", height=520)
+                chatbot = gr.Chatbot(label="Data Agent", height=420)
                 message = gr.Textbox(
                     label="Ask a data-analysis question",
-                    placeholder="Example: Find revenue drop drivers and design a validation plan.",
+                    placeholder="Example: Find revenue drop drivers and generate executable Python code.",
                     lines=3,
                 )
                 with gr.Row():
                     send = gr.Button("Run Analysis", variant="primary")
                     clear = gr.Button("Clear")
+                code_editor = gr.Textbox(
+                    label="Extracted / Editable Python Code",
+                    placeholder="A complete ```python ... ``` code block from the agent response will appear here. You can edit it before running.",
+                    lines=14,
+                )
+                with gr.Row():
+                    extract_button = gr.Button("Extract Latest Code")
+                    run_code_button = gr.Button("Run Code in Sandbox", variant="primary")
+                sandbox_output = gr.Markdown(label="Sandbox Output")
         dataset_state = gr.State("")
-        profile_button.click(profile_upload, inputs=[upload], outputs=[preview, profile_md, dataset_state])
-        send.click(respond, inputs=[message, chatbot, dataset_state], outputs=[chatbot, message])
-        message.submit(respond, inputs=[message, chatbot, dataset_state], outputs=[chatbot, message])
-        clear.click(lambda: ([], ""), outputs=[chatbot, message])
+        dataset_path_state = gr.State("")
+        profile_button.click(profile_upload, inputs=[upload], outputs=[preview, profile_md, dataset_state, dataset_path_state])
+        send.click(respond, inputs=[message, chatbot, dataset_state], outputs=[chatbot, message, code_editor])
+        message.submit(respond, inputs=[message, chatbot, dataset_state], outputs=[chatbot, message, code_editor])
+        extract_button.click(lambda history: extract_last_python_code(latest_assistant_text(history)), inputs=[chatbot], outputs=[code_editor])
+        run_code_button.click(run_sandbox_from_ui, inputs=[code_editor, dataset_path_state], outputs=[sandbox_output])
+        clear.click(lambda: ([], "", "", ""), outputs=[chatbot, message, code_editor, sandbox_output])
 
     print(f"[demo] launching Gradio on {args.server_name}:{args.server_port}", flush=True)
     demo.launch(server_name=args.server_name, server_port=args.server_port, share=args.share)
