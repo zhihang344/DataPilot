@@ -53,6 +53,39 @@ class SandboxResult:
     message: str
 
 
+def rewrite_input_file_reads(code: str, input_path: Path | None) -> tuple[str, list[str]]:
+    """Rewrite common hard-coded uploaded filenames to DATA_PATH.
+
+    This fixes frequent LLM outputs such as pd.read_csv("sales.csv") while still
+    leaving other code editable and visible in user_code.py.
+    """
+    if input_path is None:
+        return code, []
+    notes: list[str] = []
+
+    def replace_csv(match: re.Match[str]) -> str:
+        filename = match.group(2)
+        if filename.startswith(("http://", "https://", "/")):
+            return match.group(0)
+        notes.append(f"Rewrote pd.read_csv({filename!r}) to pd.read_csv(DATA_PATH).")
+        return f"{match.group(1)}DATA_PATH{match.group(3)}"
+
+    def replace_excel(match: re.Match[str]) -> str:
+        filename = match.group(2)
+        if filename.startswith(("http://", "https://", "/")):
+            return match.group(0)
+        notes.append(f"Rewrote pd.read_excel({filename!r}) to pd.read_excel(DATA_PATH).")
+        return f"{match.group(1)}DATA_PATH{match.group(3)}"
+
+    code = re.sub(r"(pd\.read_csv\(\s*)[rRuUbBfF]*['\"]([^'\"]+\.csv)['\"](\s*[,\)])", replace_csv, code)
+    code = re.sub(r"(pd\.read_excel\(\s*)[rRuUbBfF]*['\"]([^'\"]+\.xlsx?)['\"](\s*[,\)])", replace_excel, code)
+    return code, notes
+
+
+def _notes_suffix(notes: list[str]) -> str:
+    return "" if not notes else " Notes: " + " ".join(notes)
+
+
 def validate_code(code: str) -> list[str]:
     """Return policy violations found by lightweight static checks."""
     violations: list[str] = []
@@ -77,6 +110,7 @@ def run_python_in_sandbox(
     original_dir.mkdir(parents=True, exist_ok=True)
 
     input_path = _prepare_input_file(dataset_path, run_dir, original_dir)
+    code, rewrite_notes = rewrite_input_file_reads(code, input_path)
     violations = validate_code(code)
     if not code:
         return _write_result(
@@ -95,7 +129,7 @@ def run_python_in_sandbox(
                 None,
                 False,
                 [],
-                "Code rejected by sandbox policy.",
+                "Code rejected by sandbox policy." + _notes_suffix(rewrite_notes),
             ),
             run_dir,
         )
@@ -135,7 +169,7 @@ def run_python_in_sandbox(
         exit_code=exit_code,
         timeout=timed_out,
         generated_files=generated,
-        message="Execution finished." if exit_code == 0 and not timed_out else "Execution failed or timed out.",
+        message=("Execution finished." if exit_code == 0 and not timed_out else "Execution failed or timed out.") + _notes_suffix(rewrite_notes),
     )
     return _write_result(result, run_dir)
 
@@ -188,6 +222,9 @@ def _prepare_input_file(dataset_path: str | None, run_dir: Path, original_dir: P
     alias_name = "input.xlsx" if suffix in {".xlsx", ".xls"} else "input.csv"
     alias = run_dir / alias_name
     shutil.copy2(source, alias)
+    root_original_alias = run_dir / source.name
+    if root_original_alias.name != alias.name:
+        shutil.copy2(source, root_original_alias)
     return alias
 
 

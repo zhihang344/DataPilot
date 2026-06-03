@@ -21,10 +21,13 @@ Respond with: problem abstraction, data understanding, analysis plan, SQL or Pyt
 sketch, modeling choices when relevant, validation checks, and final answer format.
 If the data profile is insufficient, ask for the minimum missing information.
 When writing executable Python code, put it inside a fenced code block starting
-with three backticks and python, and ending with three backticks. Assume DATA_PATH
-and OUTPUT_DIR are predefined. Do not hard-code uploaded file names. Save charts,
-CSV files, and JSON outputs to OUTPUT_DIR. Do not use network, shell commands,
-or absolute file paths."""
+with three backticks and python, and ending with three backticks. DATA_PATH is
+the only valid input file path and OUTPUT_DIR is the only valid output directory.
+Do not hard-code or guess uploaded file names such as data.csv, input.csv, or
+the original filename. Do not overwrite DATA_PATH or OUTPUT_DIR. Save charts,
+CSV files, and JSON outputs to OUTPUT_DIR. Use only columns shown in the dataset
+profile; if a target column is unclear, write exploratory code first instead of
+training a model. Do not use network, shell commands, or absolute file paths."""
 
 
 def parse_args() -> argparse.Namespace:
