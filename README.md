@@ -4,7 +4,7 @@ This repository contains a complete scaffold for Project 2:
 
 - DataMind-12K trajectory selection and Qwen SFT data preparation.
 - GPU Qwen3.5-0.8B LoRA SFT training entry point.
-- Data-analysis oriented Qwen web demo.
+- Data-analysis oriented Qwen web demo with CSV/Excel profiling and LoRA adapter loading.
 - Report, architecture diagram, and presentation source files.
 
 ## Environment
@@ -69,7 +69,7 @@ conda run -n agent python demo/web_demo.py \
   --adapter-path outputs/checkpoints/qwen35_08b_data_agent_lora/final
 ```
 
-Open the printed local URL, usually `http://127.0.0.1:8000`.
+Open the printed local URL, usually `http://127.0.0.1:8000`. The demo supports uploading CSV/Excel files, profiling columns and missing values with pandas, and injecting the dataset profile into the agent context before generating analysis plans, SQL/Python sketches, modeling choices, and validation checks.
 
 ## Documents
 

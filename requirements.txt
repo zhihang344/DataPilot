@@ -8,3 +8,5 @@ python-pptx
 reportlab
 
 peft
+pandas
+openpyxl

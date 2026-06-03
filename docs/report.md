@@ -126,7 +126,9 @@ conda run -n agent python demo/web_demo.py \
   --adapter-path outputs/checkpoints/qwen35_08b_data_agent_lora/final
 ```
 
-The interface is adapted for data analysis. The system prompt asks the model to produce problem abstraction, analysis plan, code/SQL sketch, validation checks, and final answer format.
+Demo: http://127.0.0.1:8000
+
+The interface is adapted for data analysis and includes a lightweight tool layer. Users can upload CSV or Excel files; the demo uses pandas to profile schema, missing values, numeric statistics, and categorical top values. The dataset profile is injected into the model context so the agent can produce problem abstraction, data understanding, analysis plan, SQL/Python sketch, modeling choices, validation checks, and final answer format. This makes the demo more than a plain chatbot: it performs local data processing before calling the fine-tuned Qwen agent.
 
 ## Q2. Startup Business Plan
 
